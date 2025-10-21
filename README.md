@@ -10,11 +10,21 @@ This repository contains Terraform infrastructure as code for the BoardGameShop 
 ├── live/                          # Environment-specific configurations
 │   └── dev/                       # Development environment
 │       └── eu-west-1/             # EU West 1 region
-│           └── networking/        # VPC networking
+│           ├── networking/        # VPC networking
+│           │   ├── main.tf        # Main configuration
+│           │   ├── provider.tf    # Provider configuration
+│           │   └── outputs.tf     # Output values
+│           └── compute/           # EKS cluster
 │               ├── main.tf        # Main configuration
+│               ├── provider.tf    # Provider configuration
 │               └── outputs.tf     # Output values
 └── modules/                       # Reusable Terraform modules
-    └── vpc/                       # VPC module (EKS-ready)
+    ├── vpc/                       # VPC module
+    │   ├── main.tf
+    │   ├── variables.tf
+    │   └── outputs.tf
+    └── eks/                       # EKS module
+        ├── README.md
         ├── main.tf
         ├── variables.tf
         └── outputs.tf
@@ -159,39 +169,92 @@ vpc_id = data.terraform_remote_state.networking.outputs.vpc_id
 Located in `modules/vpc/`, this module creates an EKS-ready VPC with:
 
 - VPC with configurable CIDR
-- Public subnets (for load balancers)
-- Private subnets (for EKS worker nodes)
+- Public subnets across multiple availability zones
 - Internet Gateway
-- NAT Gateways (one per AZ for HA)
-- Route tables
-- VPC endpoints (S3, ECR) for cost optimization
-- Proper Kubernetes tags for EKS integration
+- Route tables with proper routing
+- Proper tags for resource management
 
 **Usage:**
 ```hcl
 module "vpc" {
-  source = "../../../modules/vpc"
+  source = "../../../../modules/vpc"
   
-  vpc_name             = "my-vpc"
-  vpc_cidr             = "10.0.0.0/16"
-  aws_region           = "eu-west-1"
-  cluster_name         = "my-eks-cluster"
-  public_subnet_count  = 2
-  private_subnet_count = 2
-  enable_nat_gateway   = true
-  enable_vpc_endpoints = true
-  common_tags          = local.common_tags
+  vpc_name            = "my-vpc"
+  vpc_cidr            = "10.0.0.0/16"
+  public_subnet_count = 2
 }
 ```
 
-### EKS Module (Coming Soon)
+See [modules/vpc/README.md](modules/vpc/README.md) for detailed documentation.
 
-Located in `modules/eks/`, this module will create:
-- EKS cluster
-- Managed node groups
-- IRSA (IAM Roles for Service Accounts)
-- Security groups
-- Cluster add-ons
+### EKS Module
+
+Located in `modules/eks/`, this module creates a production-ready EKS cluster with:
+
+- EKS control plane with configurable Kubernetes version
+- Managed node group with auto-scaling
+- IAM roles and policies for cluster and nodes
+- Security groups with proper ingress/egress rules
+- OIDC provider for IAM Roles for Service Accounts (IRSA)
+- Comprehensive control plane logging
+- Support for public and private API endpoints
+
+**Features:**
+- Configurable instance types (default: m5.large - 2 vCPU, 8 GB RAM)
+- Configurable node count (min, max, desired)
+- Best practices security configuration
+- Full integration with VPC module
+
+**Usage:**
+```hcl
+module "eks" {
+  source = "../../../../modules/eks"
+  
+  cluster_name       = "my-eks-cluster"
+  kubernetes_version = "1.31"
+  
+  vpc_id     = data.terraform_remote_state.networking.outputs.vpc_id
+  subnet_ids = data.terraform_remote_state.networking.outputs.public_subnet_ids
+
+  instance_type = "m5.large"
+  desired_size  = 3
+  min_size      = 2
+  max_size      = 5
+}
+```
+
+See [modules/eks/README.md](modules/eks/README.md) for detailed documentation.
+
+## 🚀 Deployment Example
+
+Here's how to deploy the complete infrastructure:
+
+### 1. Deploy VPC (Networking)
+
+```bash
+cd live/dev/eu-west-1/networking
+terraform init
+terraform plan
+terraform apply
+```
+
+### 2. Deploy EKS Cluster (Compute)
+
+```bash
+cd ../compute
+terraform init
+terraform plan
+terraform apply
+```
+
+### 3. Configure kubectl
+
+After EKS deployment completes, configure kubectl:
+
+```bash
+aws eks update-kubeconfig --region eu-west-1 --name bg-eks-dev
+kubectl get nodes
+```
 
 ## 🔒 Security Best Practices
 
