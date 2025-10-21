@@ -1,32 +1,23 @@
 # BoardGameShop Terraform Infrastructure
 
-This repository contains the Terraform/Terragrunt infrastructure as code for the BoardGameShop project, including VPC networking, EKS clusters, and supporting AWS resources.
+This repository contains Terraform infrastructure as code for the BoardGameShop project, including VPC networking and supporting AWS resources.
 
 ## 📁 Project Structure
 
 ```
 .
+├── Makefile                       # Build automation commands
 ├── live/                          # Environment-specific configurations
-│   ├── global/                    # Shared/global resources
-│   │   ├── networking/            # VPC, subnets, routing
-│   │   │   ├── eu-west-1/
-│   │   │   └── us-west-2/
-│   │   ├── iam/                   # IAM roles and policies
-│   │   ├── certificates/          # ACM certificates
-│   │   └── dns/                   # Route53 hosted zones
-│   ├── dev/                       # Development environment
-│   │   └── eu-west-1/
-│   ├── staging/                   # Staging environment
-│   │   └── eu-west-1/
-│   └── prod/                      # Production environment
-│       ├── eu-west-1/
-│       └── us-west-2/
-├── modules/                       # Reusable Terraform modules
-│   ├── vpc/                       # VPC module (EKS-ready)
-│   └── eks/                       # EKS cluster module
-└── shared/                        # Shared configurations
-    ├── backend/                   # Remote state backend setup
-    └── variables/                 # Common variable definitions
+│   └── dev/                       # Development environment
+│       └── eu-west-1/             # EU West 1 region
+│           └── networking/        # VPC networking
+│               ├── main.tf        # Main configuration
+│               └── outputs.tf     # Output values
+└── modules/                       # Reusable Terraform modules
+    └── vpc/                       # VPC module (EKS-ready)
+        ├── main.tf
+        ├── variables.tf
+        └── outputs.tf
 ```
 
 ## 🚀 Quick Start
@@ -34,9 +25,9 @@ This repository contains the Terraform/Terragrunt infrastructure as code for the
 ### Prerequisites
 
 - [Terraform](https://www.terraform.io/downloads) >= 1.0
-- [Terragrunt](https://terragrunt.gruntwork.io/docs/getting-started/install/) (optional but recommended)
 - [AWS CLI](https://aws.amazon.com/cli/) configured with appropriate credentials
 - AWS account with necessary permissions
+- Make (for using Makefile commands)
 
 ### Initial Setup
 
@@ -48,7 +39,23 @@ This repository contains the Terraform/Terragrunt infrastructure as code for the
    ```
 
 2. **Set up remote state backend (one-time setup):**
+   
+   Create S3 bucket and DynamoDB table for state management:
    ```bash
+   # Create S3 bucket
+   aws s3 mb s3://bg-tf-state-vk --region eu-west-1
+   aws s3api put-bucket-versioning \
+     --bucket bg-tf-state-vk \
+     --versioning-configuration Status=Enabled
+   
+   # Create DynamoDB table for state locking
+   aws dynamodb create-table \
+     --table-name bg-tf-state-locks \
+     --attribute-definitions AttributeName=LockID,AttributeType=S \
+     --key-schema AttributeName=LockID,KeyType=HASH \
+     --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
+     --region eu-west-1
+   ```
    cd shared/backend
    terraform init
    terraform apply
