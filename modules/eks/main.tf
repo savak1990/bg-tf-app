@@ -59,10 +59,9 @@ resource "aws_security_group_rule" "cluster_ingress_workstation_https" {
   source_security_group_id = aws_security_group.node.id
 }
 
-# CloudWatch Log Groups for EKS Control Plane Logs
+# CloudWatch Log Group for EKS Control Plane Logs
+# EKS creates one log group with different log streams for each enabled log type
 resource "aws_cloudwatch_log_group" "cluster" {
-  for_each = toset(var.cluster_log_types)
-  
   name              = "/aws/eks/${var.cluster_name}/cluster"
   retention_in_days = var.log_retention_days
 
