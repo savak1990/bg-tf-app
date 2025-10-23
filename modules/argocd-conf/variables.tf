@@ -4,62 +4,31 @@ variable "namespace" {
   default     = "argocd"
 }
 
-variable "project_name" {
-  description = "Name of the ArgoCD AppProject"
+variable "repository_url" {
+  description = "GitHub repository URL for ArgoCD (public repo, no credentials needed)"
   type        = string
-  default     = "default-project"
 }
 
-variable "project_description" {
-  description = "Description of the ArgoCD AppProject"
+variable "repository_name" {
+  description = "Name for the repository secret"
   type        = string
-  default     = "Default project for applications"
+  default     = "bg-app-repo"
 }
 
-variable "source_repos" {
-  description = "List of source repositories allowed for the project"
-  type        = list(string)
-  default     = ["*"]
+variable "app_of_apps_name" {
+  description = "Name for the root App-of-Apps application"
+  type        = string
+  default     = "bg-app-of-apps"
 }
 
-variable "destinations" {
-  description = "List of destination clusters/namespaces for the project"
-  type = list(object({
-    namespace = string
-    server    = string
-  }))
-  default = [
-    {
-      namespace = "*"
-      server    = "https://kubernetes.default.svc"
-    }
-  ]
+variable "apps_path" {
+  description = "Path within the repository containing application manifests"
+  type        = string
+  default     = "applications"
 }
 
-variable "cluster_resource_whitelist" {
-  description = "Cluster-scoped resources allowed for the project"
-  type = list(object({
-    group = string
-    kind  = string
-  }))
-  default = [
-    {
-      group = "*"
-      kind  = "*"
-    }
-  ]
-}
-
-variable "namespace_resource_whitelist" {
-  description = "Namespace-scoped resources allowed for the project"
-  type = list(object({
-    group = string
-    kind  = string
-  }))
-  default = [
-    {
-      group = "*"
-      kind  = "*"
-    }
-  ]
+variable "target_revision" {
+  description = "Git revision to sync from (branch, tag, or commit)"
+  type        = string
+  default     = "HEAD"
 }

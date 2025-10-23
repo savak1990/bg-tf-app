@@ -1,37 +1,61 @@
-# Create initial AppProject for applications
-resource "kubernetes_manifest" "argocd_project" {
-  manifest = {
-    apiVersion = "argoproj.io/v1alpha1"
-    kind       = "AppProject"
-    metadata = {
-      name      = var.project_name
-      namespace = var.namespace
-    }
-    spec = {
-      description = var.project_description
-
-      sourceRepos = var.source_repos
-
-      destinations = [
-        for dest in var.destinations : {
-          namespace = dest.namespace
-          server    = dest.server
-        }
-      ]
-
-      clusterResourceWhitelist = [
-        for resource in var.cluster_resource_whitelist : {
-          group = resource.group
-          kind  = resource.kind
-        }
-      ]
-
-      namespaceResourceWhitelist = [
-        for resource in var.namespace_resource_whitelist : {
-          group = resource.group
-          kind  = resource.kind
-        }
-      ]
+# Create repository secret for public GitHub repo (URL only, no credentials)
+resource "kubernetes_secret" "repository_secret" {
+  metadata {
+    name      = var.repository_name
+    namespace = var.namespace
+    labels = {
+      "argocd.argoproj.io/secret-type" = "repository"
     }
   }
+
+  type = "Opaque"
+
+  data = {
+    type = "git"
+    url  = var.repository_url
+  }
+}
+
+# Create root App-of-Apps application
+resource "kubernetes_manifest" "app_of_apps" {
+  manifest = {
+    apiVersion = "argoproj.io/v1alpha1"
+    kind       = "Application"
+    metadata = {
+      name      = var.app_of_apps_name
+      namespace = var.namespace
+      finalizers = [
+        "resources-finalizer.argocd.argoproj.io"
+      ]
+    }
+    spec = {
+      project = "default" # Use ArgoCD's built-in default project
+
+      source = {
+        repoURL        = var.repository_url
+        targetRevision = var.target_revision
+        path           = var.apps_path
+        directory = {
+          recurse = true
+        }
+      }
+
+      destination = {
+        server    = "https://kubernetes.default.svc"
+        namespace = var.namespace
+      }
+
+      syncPolicy = {
+        automated = {
+          prune    = true
+          selfHeal = true
+        }
+        syncOptions = [
+          "CreateNamespace=true"
+        ]
+      }
+    }
+  }
+
+  depends_on = [kubernetes_secret.repository_secret]
 }

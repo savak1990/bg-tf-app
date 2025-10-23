@@ -3,6 +3,7 @@ locals {
   project     = "bg"
   environment = "dev"
   aws_region  = "eu-west-1"
+  apps_path   = "apps"
 
   # Common tags
   common_tags = {
@@ -19,31 +20,12 @@ locals {
 module "argocd_config" {
   source = "../../../../modules/argocd-conf"
 
-  namespace           = "argocd"
-  project_name        = "default-project"
-  project_description = "Default project for applications"
+  namespace = "argocd"
 
-  # Allow all repositories and destinations (adjust for production)
-  source_repos = ["*"]
-
-  destinations = [
-    {
-      namespace = "*"
-      server    = "https://kubernetes.default.svc"
-    }
-  ]
-
-  cluster_resource_whitelist = [
-    {
-      group = "*"
-      kind  = "*"
-    }
-  ]
-
-  namespace_resource_whitelist = [
-    {
-      group = "*"
-      kind  = "*"
-    }
-  ]
+  # Repository configuration for App-of-Apps
+  repository_url   = "https://github.com/savak1990/bg-argocd-gitops.git"
+  repository_name  = "bg-app-repo"
+  app_of_apps_name = "bg-app-of-apps"
+  apps_path        = local.apps_path
+  target_revision  = "HEAD"
 }
