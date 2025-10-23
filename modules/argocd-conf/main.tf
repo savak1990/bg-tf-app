@@ -24,6 +24,9 @@ resource "kubernetes_manifest" "app_of_apps" {
     metadata = {
       name      = var.app_of_apps_name
       namespace = var.namespace
+      annotations = {
+        "argocd.argoproj.io/cascade" = "foreground"
+      }
       finalizers = [
         "resources-finalizer.argocd.argoproj.io"
       ]
