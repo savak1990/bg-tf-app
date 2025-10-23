@@ -1,34 +1,55 @@
-# BoardGameShop Terraform Infrastructure
+# Board Game Shop - Terraform Infrastructure
 
-This repository contains Terraform infrastructure as code for the BoardGameShop project, including VPC networking and supporting AWS resources.
+Terraform infrastructure as code for the Board Game Shop project, managing AWS EKS cluster, VPC, and GitOps with ArgoCD.
 
 ## 📁 Project Structure
 
 ```
-.
-├── Makefile                       # Build automation commands
-├── live/                          # Environment-specific configurations
-│   └── dev/                       # Development environment
-│       └── eu-west-1/             # EU West 1 region
-│           ├── networking/        # VPC networking
-│           │   ├── main.tf        # Main configuration
-│           │   ├── provider.tf    # Provider configuration
-│           │   └── outputs.tf     # Output values
-│           └── compute/           # EKS cluster
-│               ├── main.tf        # Main configuration
-│               ├── provider.tf    # Provider configuration
-│               └── outputs.tf     # Output values
-└── modules/                       # Reusable Terraform modules
-    ├── vpc/                       # VPC module
-    │   ├── main.tf
-    │   ├── variables.tf
-    │   └── outputs.tf
-    └── eks/                       # EKS module
-        ├── README.md
-        ├── main.tf
-        ├── variables.tf
-        └── outputs.tf
+bg-tf-app/
+├── modules/
+│   ├── vpc/              # VPC module (networking)
+│   ├── eks/              # EKS cluster module
+│   └── argocd/           # ArgoCD GitOps module
+├── live/
+│   └── dev/
+│       └── eu-west-1/
+│           ├── networking/    # Layer 1: VPC deployment
+│           ├── compute/       # Layer 2: EKS cluster
+│           └── charts/        # Layer 3: Helm charts (ArgoCD)
+├── EKS_CONNECTION_GUIDE.md         # How to connect and use EKS
+├── ARGOCD_QUICKSTART.md            # Quick start for ArgoCD
+├── ARGOCD_BOOTSTRAP_GUIDE.md       # Complete ArgoCD guide
+├── Makefile                        # Automation commands
+└── README.md                       # This file
 ```
+
+## 🚀 Features
+
+### Infrastructure
+- ✅ **VPC** - Custom VPC with public subnets across 2 AZs
+- ✅ **EKS Cluster** - Kubernetes 1.31 with managed node groups
+- ✅ **ArgoCD** - GitOps continuous delivery
+- ✅ **IRSA** - IAM Roles for Service Accounts
+- ✅ **CloudWatch Logs** - Control plane logging (7-day retention)
+- ✅ **Security Groups** - Proper isolation and access control
+
+### GitOps with ArgoCD
+- ✅ **Automated Installation** - ArgoCD deployed with Terraform
+- ✅ **Helm Integration** - Uses official ArgoCD Helm chart
+- ✅ **Initial Configuration** - Namespace and AppProject ready
+- ✅ **LoadBalancer Service** - Easy access in dev environment
+- ✅ **Extensible** - Ready for App of Apps pattern
+
+## 📚 Documentation
+
+| Guide | Purpose |
+|-------|---------|
+| [EKS Connection Guide](./EKS_CONNECTION_GUIDE.md) | How to connect to and use the EKS cluster |
+| [ArgoCD Quick Start](./ARGOCD_QUICKSTART.md) | Deploy ArgoCD and get started quickly |
+| [ArgoCD Bootstrap Guide](./ARGOCD_BOOTSTRAP_GUIDE.md) | Complete guide for GitOps setup |
+| [VPC Module](./modules/vpc/README.md) | VPC module documentation |
+| [EKS Module](./modules/eks/README.md) | EKS module documentation |
+| [ArgoCD Module](./modules/argocd/README.md) | ArgoCD module documentation |
 
 ## 🚀 Quick Start
 

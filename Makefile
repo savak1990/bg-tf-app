@@ -11,23 +11,29 @@ help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Targets:"
-	@echo "  init           - Initialize Terraform in both networking and compute"
-	@echo "  validate       - Validate Terraform configuration"
-	@echo "  fmt            - Format Terraform files"
-	@echo "  plan           - Show Terraform execution plan for all modules"
-	@echo "  apply          - Apply all infrastructure (VPC then EKS)"
-	@echo "  apply-vpc      - Apply VPC configuration only"
-	@echo "  apply-eks      - Apply EKS configuration only (requires VPC)"
-	@echo "  destroy        - Destroy all Terraform-managed infrastructure"
-	@echo "  destroy-eks    - Destroy EKS cluster only"
-	@echo "  destroy-vpc    - Destroy VPC only (requires EKS to be destroyed first)"
-	@echo "  clean          - Clean Terraform cache and lock files"
-	@echo "  output         - Show Terraform outputs"
+	@echo "  init               - Initialize Terraform in all layers"
+	@echo "  validate           - Validate Terraform configuration"
+	@echo "  fmt                - Format Terraform files"
+	@echo "  plan               - Show Terraform execution plan for all layers (may skip Charts)"
+	@echo "  apply              - Apply all infrastructure (VPC → EKS → Charts Install → Charts Config) in sequence"
+	@echo "  apply-vpc          - Apply VPC configuration only"
+	@echo "  apply-eks          - Apply EKS configuration only (requires VPC)"
+	@echo "  apply-charts-install  - Apply Helm charts (ArgoCD installation) only (requires EKS)"
+	@echo "  apply-charts-config   - Apply ArgoCD configuration only (requires Charts Install)"
+	@echo "  destroy            - Destroy all Terraform-managed infrastructure"
+	@echo "  destroy-charts-config - Destroy ArgoCD configuration only"
+	@echo "  destroy-charts-install - Destroy Helm charts only"
+	@echo "  destroy-eks        - Destroy EKS cluster only"
+	@echo "  destroy-vpc        - Destroy VPC only (requires EKS to be destroyed first)"
+	@echo "  clean              - Clean Terraform cache and lock files"
+	@echo "  output             - Show Terraform outputs"
 	@echo ""
 
 # Terraform directories
-TF_VPC_DIR = live/dev/eu-west-1/networking
-TF_EKS_DIR = live/dev/eu-west-1/compute
+TF_VPC_DIR            = live/dev/eu-west-1/networking
+TF_EKS_DIR            = live/dev/eu-west-1/compute
+TF_CHARTS_INSTALL_DIR = live/dev/eu-west-1/charts-install
+TF_CHARTS_CONFIG_DIR  = live/dev/eu-west-1/charts-config
 
 # Initialize Terraform
 init:
@@ -36,6 +42,12 @@ init:
 	@echo ""
 	@echo "Initializing Terraform for EKS..."
 	cd $(TF_EKS_DIR) && terraform init
+	@echo ""
+	@echo "Initializing Terraform for Charts Install..."
+	cd $(TF_CHARTS_INSTALL_DIR) && terraform init
+	@echo ""
+	@echo "Initializing Terraform for Charts Config..."
+	cd $(TF_CHARTS_CONFIG_DIR) && terraform init
 
 # Initialize VPC only
 init-vpc:
@@ -47,6 +59,16 @@ init-eks:
 	@echo "Initializing Terraform for EKS..."
 	cd $(TF_EKS_DIR) && terraform init
 
+# Initialize Charts only
+init-charts-install:
+	@echo "Initializing Terraform for Charts Install..."
+	cd $(TF_CHARTS_INSTALL_DIR) && terraform init
+
+# Initialize Charts Config only
+init-charts-config:
+	@echo "Initializing Terraform for Charts Config..."
+	cd $(TF_CHARTS_CONFIG_DIR) && terraform init
+
 # Validate configuration
 validate: init
 	@echo "Validating VPC configuration..."
@@ -54,6 +76,12 @@ validate: init
 	@echo ""
 	@echo "Validating EKS configuration..."
 	cd $(TF_EKS_DIR) && terraform validate
+	@echo ""
+	@echo "Validating Charts Install configuration..."
+	cd $(TF_CHARTS_INSTALL_DIR) && terraform validate
+	@echo ""
+	@echo "Validating Charts Config configuration..."
+	cd $(TF_CHARTS_CONFIG_DIR) && terraform validate
 
 # Format Terraform files
 fmt:
@@ -67,30 +95,58 @@ plan: init
 	@echo ""
 	@echo "Creating Terraform execution plan for EKS..."
 	cd $(TF_EKS_DIR) && terraform plan
+	@echo ""
+	@echo "Creating Terraform execution plan for Charts Install..."
+	@echo "Note: Charts plan will fail if EKS cluster doesn't exist yet."
+	@echo "Use 'make apply' to deploy all layers in order, or plan each layer separately."
+	@cd $(TF_CHARTS_INSTALL_DIR) && terraform plan || echo "Charts Install plan skipped (EKS not deployed yet)"
+	@echo ""
+	@echo "Creating Terraform execution plan for Charts Config..."
+	@cd $(TF_CHARTS_CONFIG_DIR) && terraform plan || echo "Charts Config plan skipped (Charts Install not deployed yet)"
 
 # Plan VPC only
-plan-vpc: init-vpc
+plan-vpc:
 	@echo "Creating Terraform execution plan for VPC..."
 	cd $(TF_VPC_DIR) && terraform plan
 
 # Plan EKS only
-plan-eks: init-eks
+plan-eks:
 	@echo "Creating Terraform execution plan for EKS..."
 	cd $(TF_EKS_DIR) && terraform plan
 
-# Apply configuration (VPC first, then EKS)
-apply: apply-vpc apply-eks
+# Plan Charts only
+plan-charts-install:
+	@echo "Creating Terraform execution plan for Charts Install..."
+	cd $(TF_CHARTS_INSTALL_DIR) && terraform plan
+
+# Plan Charts Config only
+plan-charts-config:
+	@echo "Creating Terraform execution plan for Charts Config..."
+	cd $(TF_CHARTS_CONFIG_DIR) && terraform plan
+
+# Apply configuration (VPC → EKS → Charts Install → Charts Config)
+apply: apply-vpc apply-eks apply-charts-install apply-charts-config
 	@echo "All infrastructure applied successfully!"
 
 # Apply VPC configuration
-apply-vpc: init-vpc
+apply-vpc:
 	@echo "Applying VPC configuration..."
 	cd $(TF_VPC_DIR) && terraform apply -auto-approve
 
 # Apply EKS configuration (depends on VPC)
-apply-eks: init-eks apply-vpc
+apply-eks:
 	@echo "Applying EKS configuration..."
 	cd $(TF_EKS_DIR) && terraform apply -auto-approve
+
+# Apply Charts configuration (depends on EKS)
+apply-charts-install:
+	@echo "Applying Charts Install configuration (ArgoCD)..."
+	cd $(TF_CHARTS_INSTALL_DIR) && terraform apply -auto-approve
+
+# Apply Charts Config configuration (depends on Charts Install)
+apply-charts-config:
+	@echo "Applying Charts Config configuration (ArgoCD AppProject)..."
+	cd $(TF_CHARTS_CONFIG_DIR) && terraform apply -auto-approve
 
 # Apply with manual approval
 apply-confirm: init
@@ -99,10 +155,26 @@ apply-confirm: init
 	@echo ""
 	@echo "Applying EKS configuration (with confirmation)..."
 	cd $(TF_EKS_DIR) && terraform apply
+	@echo ""
+	@echo "Applying Charts Install configuration (with confirmation)..."
+	cd $(TF_CHARTS_INSTALL_DIR) && terraform apply
+	@echo ""
+	@echo "Applying Charts Config configuration (with confirmation)..."
+	cd $(TF_CHARTS_CONFIG_DIR) && terraform apply
 
-# Destroy infrastructure (EKS first, then VPC)
-destroy: destroy-eks destroy-vpc
+# Destroy infrastructure (Charts Config → Charts Install → EKS → VPC)
+destroy: destroy-charts-config destroy-charts-install destroy-eks destroy-vpc
 	@echo "All infrastructure destroyed!"
+
+# Destroy Charts Config (ArgoCD AppProject)
+destroy-charts-config:
+	@echo "Destroying ArgoCD configuration..."
+	cd $(TF_CHARTS_CONFIG_DIR) && terraform destroy -auto-approve
+
+# Destroy Charts Install (ArgoCD)
+destroy-charts-install:
+	@echo "Destroying Helm charts..."
+	cd $(TF_CHARTS_INSTALL_DIR) && terraform destroy -auto-approve
 
 # Destroy EKS cluster
 destroy-eks:
@@ -123,6 +195,14 @@ output:
 	@echo "EKS Terraform outputs:"
 	@echo "======================"
 	cd $(TF_EKS_DIR) && terraform output
+	@echo ""
+	@echo "Charts Install Terraform outputs:"
+	@echo "=================================="
+	cd $(TF_CHARTS_INSTALL_DIR) && terraform output
+	@echo ""
+	@echo "Charts Config Terraform outputs:"
+	@echo "================================="
+	cd $(TF_CHARTS_CONFIG_DIR) && terraform output
 
 # Show VPC outputs only
 output-vpc:
@@ -133,6 +213,16 @@ output-vpc:
 output-eks:
 	@echo "EKS Terraform outputs:"
 	cd $(TF_EKS_DIR) && terraform output
+
+# Show Charts outputs only
+output-charts-install:
+	@echo "Charts Install Terraform outputs:"
+	cd $(TF_CHARTS_INSTALL_DIR) && terraform output
+
+# Show Charts Config outputs only
+output-charts-config:
+	@echo "Charts Config Terraform outputs:"
+	cd $(TF_CHARTS_CONFIG_DIR) && terraform output
 
 # Clean Terraform files
 clean:
@@ -151,6 +241,14 @@ state:
 	@echo "EKS Terraform state:"
 	@echo "===================="
 	cd $(TF_EKS_DIR) && terraform state list
+	@echo ""
+	@echo "Charts Install Terraform state:"
+	@echo "==============================="
+	cd $(TF_CHARTS_INSTALL_DIR) && terraform state list
+	@echo ""
+	@echo "Charts Config Terraform state:"
+	@echo "=============================="
+	cd $(TF_CHARTS_CONFIG_DIR) && terraform state list
 
 # Show VPC state only
 state-vpc:
@@ -161,3 +259,13 @@ state-vpc:
 state-eks:
 	@echo "EKS Terraform state:"
 	cd $(TF_EKS_DIR) && terraform state list
+
+# Show Charts state only
+state-charts-install:
+	@echo "Charts Install Terraform state:"
+	cd $(TF_CHARTS_INSTALL_DIR) && terraform state list
+
+# Show Charts Config state only
+state-charts-config:
+	@echo "Charts Config Terraform state:"
+	cd $(TF_CHARTS_CONFIG_DIR) && terraform state list
