@@ -36,7 +36,7 @@ module "eks" {
   source = "../../../../modules/eks"
 
   cluster_name       = local.cluster_name
-  kubernetes_version = "1.31"
+  kubernetes_version = "1.34"
 
   vpc_id     = data.terraform_remote_state.networking.outputs.vpc_id
   subnet_ids = data.terraform_remote_state.networking.outputs.public_subnet_ids
