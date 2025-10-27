@@ -11,6 +11,13 @@ variable "cluster_endpoint" {
 variable "cluster_ca_certificate" {
   description = "Base64 encoded certificate data for EKS cluster"
   type        = string
+  sensitive   = true
+}
+
+variable "cluster_auth_token" {
+  description = "EKS cluster authentication token"
+  type        = string
+  sensitive   = true
 }
 
 variable "namespace" {

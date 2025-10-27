@@ -15,10 +15,19 @@ locals {
   }
 }
 
+# Get authentication token for the cluster
+data "aws_eks_cluster_auth" "cluster" {
+  name = data.terraform_remote_state.eks.outputs.cluster_name
+}
+
 # ArgoCD Configuration Module
-# Note: This depends on ArgoCD being installed first (charts-install)
-module "argocd_config" {
-  source = "../../../../modules/argocd-conf"
+# Note: This depends on ArgoCD being installed first (k8s-bootstrap)
+module "k8s_argocd_config" {
+  source = "../../../../modules/k8s-argocd-config"
+
+  cluster_endpoint       = data.terraform_remote_state.eks.outputs.cluster_endpoint
+  cluster_ca_certificate = data.terraform_remote_state.eks.outputs.cluster_certificate_authority_data
+  cluster_auth_token     = data.aws_eks_cluster_auth.cluster.token
 
   namespace = "argocd"
 

@@ -14,14 +14,15 @@ locals {
   }
 }
 
-# ArgoCD Module
+# ArgoCD Bootstrap Module
 # Note: EKS remote state is accessed via data source in provider.tf
-module "argocd" {
-  source = "../../../../modules/argocd-install"
+module "k8s_bootstrap" {
+  source = "../../../../modules/k8s-bootstrap"
 
   cluster_name           = data.terraform_remote_state.eks.outputs.cluster_name
   cluster_endpoint       = data.terraform_remote_state.eks.outputs.cluster_endpoint
   cluster_ca_certificate = data.terraform_remote_state.eks.outputs.cluster_certificate_authority_data
+  cluster_auth_token     = data.aws_eks_cluster_auth.cluster.token
 
   namespace     = "argocd"
   chart_version = "7.7.11" # ArgoCD v2.13.2

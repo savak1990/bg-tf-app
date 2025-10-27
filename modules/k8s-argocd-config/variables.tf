@@ -1,3 +1,20 @@
+variable "cluster_endpoint" {
+  description = "EKS cluster API endpoint"
+  type        = string
+}
+
+variable "cluster_ca_certificate" {
+  description = "EKS cluster CA certificate (base64 encoded)"
+  type        = string
+  sensitive   = true
+}
+
+variable "cluster_auth_token" {
+  description = "EKS cluster authentication token"
+  type        = string
+  sensitive   = true
+}
+
 variable "namespace" {
   description = "Kubernetes namespace where ArgoCD is installed"
   type        = string

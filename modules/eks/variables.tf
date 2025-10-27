@@ -49,12 +49,6 @@ variable "disk_size" {
   default     = 20
 }
 
-variable "kms_key_arns" {
-  description = "List of KMS key ARNs the EBS CSI Driver shold be allowed to use. Falls back to all keys"
-  type        = list(string)
-  default     = []
-}
-
 variable "endpoint_private_access" {
   description = "Enable private API server endpoint"
   type        = bool

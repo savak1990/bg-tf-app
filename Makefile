@@ -11,29 +11,32 @@ help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "Targets:"
-	@echo "  init               - Initialize Terraform in all layers"
-	@echo "  validate           - Validate Terraform configuration"
-	@echo "  fmt                - Format Terraform files"
-	@echo "  plan               - Show Terraform execution plan for all layers (may skip Charts)"
-	@echo "  apply              - Apply all infrastructure (VPC → EKS → Charts Install → Charts Config) in sequence"
-	@echo "  apply-vpc          - Apply VPC configuration only"
-	@echo "  apply-eks          - Apply EKS configuration only (requires VPC)"
-	@echo "  apply-charts-install  - Apply Helm charts (ArgoCD installation) only (requires EKS)"
-	@echo "  apply-charts-config   - Apply ArgoCD configuration only (requires Charts Install)"
-	@echo "  destroy            - Destroy all Terraform-managed infrastructure"
-	@echo "  destroy-charts-config - Destroy ArgoCD configuration only"
-	@echo "  destroy-charts-install - Destroy Helm charts only"
-	@echo "  destroy-eks        - Destroy EKS cluster only"
-	@echo "  destroy-vpc        - Destroy VPC only (requires EKS to be destroyed first)"
-	@echo "  clean              - Clean Terraform cache and lock files"
-	@echo "  output             - Show Terraform outputs"
+	@echo "  init                  - Initialize Terraform in all layers"
+	@echo "  validate              - Validate Terraform configuration"
+	@echo "  fmt                   - Format Terraform files"
+	@echo "  plan                  - Show Terraform execution plan for all layers"
+	@echo "  apply                 - Apply all infrastructure (VPC → EKS → EKS-Addons → K8s-Bootstrap → K8s-ArgoCD-Config) in sequence"
+	@echo "  apply-vpc             - Apply VPC configuration only"
+	@echo "  apply-eks             - Apply EKS configuration only (requires VPC)"
+	@echo "  apply-eks-addons      - Apply EKS addons only (requires EKS)"
+	@echo "  apply-k8s-bootstrap   - Apply K8s bootstrap (ArgoCD installation) only (requires EKS addons)"
+	@echo "  apply-k8s-argocd      - Apply K8s ArgoCD configuration only (requires K8s bootstrap)"
+	@echo "  destroy               - Destroy all Terraform-managed infrastructure"
+	@echo "  destroy-k8s-argocd    - Destroy K8s ArgoCD configuration only"
+	@echo "  destroy-k8s-bootstrap - Destroy K8s bootstrap only"
+	@echo "  destroy-eks-addons    - Destroy EKS addons only"
+	@echo "  destroy-eks           - Destroy EKS cluster only"
+	@echo "  destroy-vpc           - Destroy VPC only (requires EKS to be destroyed first)"
+	@echo "  clean                 - Clean Terraform cache and lock files"
+	@echo "  output                - Show Terraform outputs"
 	@echo ""
 
 # Terraform directories
 TF_VPC_DIR            = live/dev/eu-west-1/networking
-TF_EKS_DIR            = live/dev/eu-west-1/compute
-TF_CHARTS_INSTALL_DIR = live/dev/eu-west-1/charts-install
-TF_CHARTS_CONFIG_DIR  = live/dev/eu-west-1/charts-config
+TF_EKS_DIR            = live/dev/eu-west-1/eks
+TF_EKS_ADDONS_DIR     = live/dev/eu-west-1/eks-addons
+TF_K8S_BOOTSTRAP_DIR  = live/dev/eu-west-1/k8s-bootstrap
+TF_K8S_ARGOCD_DIR     = live/dev/eu-west-1/k8s-argocd-config
 
 # Initialize Terraform
 init:
@@ -43,11 +46,14 @@ init:
 	@echo "Initializing Terraform for EKS..."
 	cd $(TF_EKS_DIR) && terraform init
 	@echo ""
-	@echo "Initializing Terraform for Charts Install..."
-	cd $(TF_CHARTS_INSTALL_DIR) && terraform init
+	@echo "Initializing Terraform for EKS Addons..."
+	cd $(TF_EKS_ADDONS_DIR) && terraform init
 	@echo ""
-	@echo "Initializing Terraform for Charts Config..."
-	cd $(TF_CHARTS_CONFIG_DIR) && terraform init
+	@echo "Initializing Terraform for K8s Bootstrap..."
+	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform init
+	@echo ""
+	@echo "Initializing Terraform for K8s ArgoCD Config..."
+	cd $(TF_K8S_ARGOCD_DIR) && terraform init
 
 # Initialize VPC only
 init-vpc:
@@ -59,15 +65,20 @@ init-eks:
 	@echo "Initializing Terraform for EKS..."
 	cd $(TF_EKS_DIR) && terraform init
 
-# Initialize Charts only
-init-charts-install:
-	@echo "Initializing Terraform for Charts Install..."
-	cd $(TF_CHARTS_INSTALL_DIR) && terraform init
+# Initialize EKS Addons only
+init-eks-addons:
+	@echo "Initializing Terraform for EKS Addons..."
+	cd $(TF_EKS_ADDONS_DIR) && terraform init
 
-# Initialize Charts Config only
-init-charts-config:
-	@echo "Initializing Terraform for Charts Config..."
-	cd $(TF_CHARTS_CONFIG_DIR) && terraform init
+# Initialize K8s Bootstrap only
+init-k8s-bootstrap:
+	@echo "Initializing Terraform for K8s Bootstrap..."
+	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform init
+
+# Initialize K8s ArgoCD Config only
+init-k8s-argocd:
+	@echo "Initializing Terraform for K8s ArgoCD Config..."
+	cd $(TF_K8S_ARGOCD_DIR) && terraform init
 
 # Validate configuration
 validate: init
@@ -77,11 +88,14 @@ validate: init
 	@echo "Validating EKS configuration..."
 	cd $(TF_EKS_DIR) && terraform validate
 	@echo ""
-	@echo "Validating Charts Install configuration..."
-	cd $(TF_CHARTS_INSTALL_DIR) && terraform validate
+	@echo "Validating EKS Addons configuration..."
+	cd $(TF_EKS_ADDONS_DIR) && terraform validate
 	@echo ""
-	@echo "Validating Charts Config configuration..."
-	cd $(TF_CHARTS_CONFIG_DIR) && terraform validate
+	@echo "Validating K8s Bootstrap configuration..."
+	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform validate
+	@echo ""
+	@echo "Validating K8s ArgoCD Config configuration..."
+	cd $(TF_K8S_ARGOCD_DIR) && terraform validate
 
 # Format Terraform files
 fmt:
@@ -96,13 +110,17 @@ plan: init
 	@echo "Creating Terraform execution plan for EKS..."
 	cd $(TF_EKS_DIR) && terraform plan
 	@echo ""
-	@echo "Creating Terraform execution plan for Charts Install..."
-	@echo "Note: Charts plan will fail if EKS cluster doesn't exist yet."
-	@echo "Use 'make apply' to deploy all layers in order, or plan each layer separately."
-	@cd $(TF_CHARTS_INSTALL_DIR) && terraform plan || echo "Charts Install plan skipped (EKS not deployed yet)"
+	@echo "Creating Terraform execution plan for EKS Addons..."
+	@echo "Note: EKS Addons plan will fail if EKS cluster doesn't exist yet."
+	@cd $(TF_EKS_ADDONS_DIR) && terraform plan || echo "EKS Addons plan skipped (EKS not deployed yet)"
 	@echo ""
-	@echo "Creating Terraform execution plan for Charts Config..."
-	@cd $(TF_CHARTS_CONFIG_DIR) && terraform plan || echo "Charts Config plan skipped (Charts Install not deployed yet)"
+	@echo "Creating Terraform execution plan for K8s Bootstrap..."
+	@echo "Note: K8s Bootstrap plan will fail if EKS Addons aren't deployed yet."
+	@cd $(TF_K8S_BOOTSTRAP_DIR) && terraform plan || echo "K8s Bootstrap plan skipped (EKS Addons not deployed yet)"
+	@echo ""
+	@echo "Creating Terraform execution plan for K8s ArgoCD Config..."
+	@echo "Note: K8s ArgoCD Config plan will fail if K8s Bootstrap isn't deployed yet."
+	@cd $(TF_K8S_ARGOCD_DIR) && terraform plan || echo "K8s ArgoCD Config plan skipped (K8s Bootstrap not deployed yet)"
 
 # Plan VPC only
 plan-vpc:
@@ -114,18 +132,23 @@ plan-eks:
 	@echo "Creating Terraform execution plan for EKS..."
 	cd $(TF_EKS_DIR) && terraform plan
 
-# Plan Charts only
-plan-charts-install:
-	@echo "Creating Terraform execution plan for Charts Install..."
-	cd $(TF_CHARTS_INSTALL_DIR) && terraform plan
+# Plan EKS Addons only
+plan-eks-addons:
+	@echo "Creating Terraform execution plan for EKS Addons..."
+	cd $(TF_EKS_ADDONS_DIR) && terraform plan
 
-# Plan Charts Config only
-plan-charts-config:
-	@echo "Creating Terraform execution plan for Charts Config..."
-	cd $(TF_CHARTS_CONFIG_DIR) && terraform plan
+# Plan K8s Bootstrap only
+plan-k8s-bootstrap:
+	@echo "Creating Terraform execution plan for K8s Bootstrap..."
+	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform plan
 
-# Apply configuration (VPC → EKS → Charts Install → Charts Config)
-apply: apply-vpc apply-eks apply-charts-install apply-charts-config
+# Plan K8s ArgoCD Config only
+plan-k8s-argocd:
+	@echo "Creating Terraform execution plan for K8s ArgoCD Config..."
+	cd $(TF_K8S_ARGOCD_DIR) && terraform plan
+
+# Apply configuration (VPC → EKS → EKS Addons → K8s Bootstrap → K8s ArgoCD Config)
+apply: apply-vpc apply-eks apply-eks-addons apply-k8s-bootstrap apply-k8s-argocd
 	@echo "All infrastructure applied successfully!"
 
 # Apply VPC configuration
@@ -138,15 +161,20 @@ apply-eks:
 	@echo "Applying EKS configuration..."
 	cd $(TF_EKS_DIR) && terraform apply -auto-approve
 
-# Apply Charts configuration (depends on EKS)
-apply-charts-install:
-	@echo "Applying Charts Install configuration (ArgoCD)..."
-	cd $(TF_CHARTS_INSTALL_DIR) && terraform apply -auto-approve
+# Apply EKS Addons configuration (depends on EKS)
+apply-eks-addons:
+	@echo "Applying EKS Addons configuration..."
+	cd $(TF_EKS_ADDONS_DIR) && terraform apply -auto-approve
 
-# Apply Charts Config configuration (depends on Charts Install)
-apply-charts-config:
-	@echo "Applying Charts Config configuration (ArgoCD AppProject)..."
-	cd $(TF_CHARTS_CONFIG_DIR) && terraform apply -auto-approve
+# Apply K8s Bootstrap configuration (depends on EKS Addons)
+apply-k8s-bootstrap:
+	@echo "Applying K8s Bootstrap configuration (ArgoCD)..."
+	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform apply -auto-approve
+
+# Apply K8s ArgoCD Config configuration (depends on K8s Bootstrap)
+apply-k8s-argocd:
+	@echo "Applying K8s ArgoCD Config configuration..."
+	cd $(TF_K8S_ARGOCD_DIR) && terraform apply -auto-approve
 
 # Apply with manual approval
 apply-confirm: init
@@ -156,25 +184,33 @@ apply-confirm: init
 	@echo "Applying EKS configuration (with confirmation)..."
 	cd $(TF_EKS_DIR) && terraform apply
 	@echo ""
-	@echo "Applying Charts Install configuration (with confirmation)..."
-	cd $(TF_CHARTS_INSTALL_DIR) && terraform apply
+	@echo "Applying EKS Addons configuration (with confirmation)..."
+	cd $(TF_EKS_ADDONS_DIR) && terraform apply
 	@echo ""
-	@echo "Applying Charts Config configuration (with confirmation)..."
-	cd $(TF_CHARTS_CONFIG_DIR) && terraform apply
+	@echo "Applying K8s Bootstrap configuration (with confirmation)..."
+	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform apply
+	@echo ""
+	@echo "Applying K8s ArgoCD Config configuration (with confirmation)..."
+	cd $(TF_K8S_ARGOCD_DIR) && terraform apply
 
-# Destroy infrastructure (Charts Config → Charts Install → EKS → VPC)
-destroy: destroy-charts-config destroy-charts-install destroy-eks destroy-vpc
+# Destroy infrastructure (K8s ArgoCD Config → K8s Bootstrap → EKS Addons → EKS → VPC)
+destroy: destroy-k8s-argocd destroy-k8s-bootstrap destroy-eks-addons destroy-eks destroy-vpc
 	@echo "All infrastructure destroyed!"
 
-# Destroy Charts Config (ArgoCD AppProject)
-destroy-charts-config:
-	@echo "Destroying ArgoCD configuration..."
-	cd $(TF_CHARTS_CONFIG_DIR) && terraform destroy -auto-approve
+# Destroy K8s ArgoCD Config
+destroy-k8s-argocd:
+	@echo "Destroying K8s ArgoCD configuration..."
+	cd $(TF_K8S_ARGOCD_DIR) && terraform destroy -auto-approve
 
-# Destroy Charts Install (ArgoCD)
-destroy-charts-install:
-	@echo "Destroying Helm charts..."
-	cd $(TF_CHARTS_INSTALL_DIR) && terraform destroy -auto-approve
+# Destroy K8s Bootstrap
+destroy-k8s-bootstrap:
+	@echo "Destroying K8s Bootstrap..."
+	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform destroy -auto-approve
+
+# Destroy EKS Addons
+destroy-eks-addons:
+	@echo "Destroying EKS Addons..."
+	cd $(TF_EKS_ADDONS_DIR) && terraform destroy -auto-approve
 
 # Destroy EKS cluster
 destroy-eks:
@@ -196,13 +232,17 @@ output:
 	@echo "======================"
 	cd $(TF_EKS_DIR) && terraform output
 	@echo ""
-	@echo "Charts Install Terraform outputs:"
-	@echo "=================================="
-	cd $(TF_CHARTS_INSTALL_DIR) && terraform output
+	@echo "EKS Addons Terraform outputs:"
+	@echo "============================="
+	cd $(TF_EKS_ADDONS_DIR) && terraform output
 	@echo ""
-	@echo "Charts Config Terraform outputs:"
-	@echo "================================="
-	cd $(TF_CHARTS_CONFIG_DIR) && terraform output
+	@echo "K8s Bootstrap Terraform outputs:"
+	@echo "================================"
+	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform output
+	@echo ""
+	@echo "K8s ArgoCD Config Terraform outputs:"
+	@echo "===================================="
+	cd $(TF_K8S_ARGOCD_DIR) && terraform output
 
 # Show VPC outputs only
 output-vpc:
@@ -214,15 +254,20 @@ output-eks:
 	@echo "EKS Terraform outputs:"
 	cd $(TF_EKS_DIR) && terraform output
 
-# Show Charts outputs only
-output-charts-install:
-	@echo "Charts Install Terraform outputs:"
-	cd $(TF_CHARTS_INSTALL_DIR) && terraform output
+# Show EKS Addons outputs only
+output-eks-addons:
+	@echo "EKS Addons Terraform outputs:"
+	cd $(TF_EKS_ADDONS_DIR) && terraform output
 
-# Show Charts Config outputs only
-output-charts-config:
-	@echo "Charts Config Terraform outputs:"
-	cd $(TF_CHARTS_CONFIG_DIR) && terraform output
+# Show K8s Bootstrap outputs only
+output-k8s-bootstrap:
+	@echo "K8s Bootstrap Terraform outputs:"
+	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform output
+
+# Show K8s ArgoCD Config outputs only
+output-k8s-argocd:
+	@echo "K8s ArgoCD Config Terraform outputs:"
+	cd $(TF_K8S_ARGOCD_DIR) && terraform output
 
 # Clean Terraform files
 clean:
@@ -242,13 +287,17 @@ state:
 	@echo "===================="
 	cd $(TF_EKS_DIR) && terraform state list
 	@echo ""
-	@echo "Charts Install Terraform state:"
-	@echo "==============================="
-	cd $(TF_CHARTS_INSTALL_DIR) && terraform state list
+	@echo "EKS Addons Terraform state:"
+	@echo "==========================="
+	cd $(TF_EKS_ADDONS_DIR) && terraform state list
 	@echo ""
-	@echo "Charts Config Terraform state:"
+	@echo "K8s Bootstrap Terraform state:"
 	@echo "=============================="
-	cd $(TF_CHARTS_CONFIG_DIR) && terraform state list
+	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform state list
+	@echo ""
+	@echo "K8s ArgoCD Config Terraform state:"
+	@echo "=================================="
+	cd $(TF_K8S_ARGOCD_DIR) && terraform state list
 
 # Show VPC state only
 state-vpc:
@@ -260,12 +309,17 @@ state-eks:
 	@echo "EKS Terraform state:"
 	cd $(TF_EKS_DIR) && terraform state list
 
-# Show Charts state only
-state-charts-install:
-	@echo "Charts Install Terraform state:"
-	cd $(TF_CHARTS_INSTALL_DIR) && terraform state list
+# Show EKS Addons state only
+state-eks-addons:
+	@echo "EKS Addons Terraform state:"
+	cd $(TF_EKS_ADDONS_DIR) && terraform state list
 
-# Show Charts Config state only
-state-charts-config:
-	@echo "Charts Config Terraform state:"
-	cd $(TF_CHARTS_CONFIG_DIR) && terraform state list
+# Show K8s Bootstrap state only
+state-k8s-bootstrap:
+	@echo "K8s Bootstrap Terraform state:"
+	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform state list
+
+# Show K8s ArgoCD Config state only
+state-k8s-argocd:
+	@echo "K8s ArgoCD Config Terraform state:"
+	cd $(TF_K8S_ARGOCD_DIR) && terraform state list
