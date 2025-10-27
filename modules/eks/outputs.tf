@@ -64,13 +64,3 @@ output "cluster_iam_role_arn" {
   description = "IAM role ARN of the EKS cluster"
   value       = aws_iam_role.cluster.arn
 }
-
-output "oidc_provider_arn" {
-  description = "ARN of the OIDC Provider for EKS"
-  value       = aws_iam_openid_connect_provider.cluster.arn
-}
-
-output "oidc_provider_url" {
-  description = "URL of the OIDC Provider for EKS"
-  value       = aws_eks_cluster.main.identity[0].oidc[0].issuer
-}

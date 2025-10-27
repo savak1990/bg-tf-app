@@ -1,3 +1,5 @@
+data "aws_region" "current" {}
+
 # EKS Cluster IAM Role
 resource "aws_iam_role" "cluster" {
   name = "${var.cluster_name}-cluster-role"
@@ -12,8 +14,6 @@ resource "aws_iam_role" "cluster" {
       }
     }]
   })
-
-  tags = var.tags
 }
 
 resource "aws_iam_role_policy_attachment" "cluster_policy" {
@@ -40,12 +40,9 @@ resource "aws_security_group" "cluster" {
     description = "Allow all outbound traffic"
   }
 
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.cluster_name}-cluster-sg"
-    }
-  )
+  tags = {
+    Name = "${var.cluster_name}-cluster-sg"
+  }
 }
 
 # Allow worker nodes to communicate with cluster API
@@ -64,8 +61,6 @@ resource "aws_security_group_rule" "cluster_ingress_workstation_https" {
 resource "aws_cloudwatch_log_group" "cluster" {
   name              = "/aws/eks/${var.cluster_name}/cluster"
   retention_in_days = var.log_retention_days
-
-  tags = var.tags
 }
 
 # EKS Cluster
@@ -89,8 +84,6 @@ resource "aws_eks_cluster" "main" {
     aws_iam_role_policy_attachment.cluster_vpc_resource_controller,
     aws_cloudwatch_log_group.cluster,
   ]
-
-  tags = var.tags
 }
 
 # EKS Node IAM Role
@@ -107,8 +100,6 @@ resource "aws_iam_role" "node" {
       }
     }]
   })
-
-  tags = var.tags
 }
 
 resource "aws_iam_role_policy_attachment" "node_worker_policy" {
@@ -140,13 +131,10 @@ resource "aws_security_group" "node" {
     description = "Allow all outbound traffic"
   }
 
-  tags = merge(
-    var.tags,
-    {
-      Name                                        = "${var.cluster_name}-node-sg"
-      "kubernetes.io/cluster/${var.cluster_name}" = "owned"
-    }
-  )
+  tags = {
+    Name                                        = "${var.cluster_name}-node-sg"
+    "kubernetes.io/cluster/${var.cluster_name}" = "owned"
+  }
 }
 
 # Allow nodes to communicate with each other
@@ -208,12 +196,9 @@ resource "aws_eks_node_group" "main" {
     aws_iam_role_policy_attachment.node_registry_policy,
   ]
 
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.cluster_name}-node-group"
-    }
-  )
+  tags = {
+    Name = "${var.cluster_name}-node-group"
+  }
 
   # Allow external changes without Terraform plan difference
   lifecycle {
@@ -221,15 +206,141 @@ resource "aws_eks_node_group" "main" {
   }
 }
 
-# OIDC Provider for IRSA (IAM Roles for Service Accounts)
-data "tls_certificate" "cluster" {
-  url = aws_eks_cluster.main.identity[0].oidc[0].issuer
+# EKS Pod Identity Agent (required for Pod Identity)
+resource "aws_eks_addon" "pod_identity_agent" {
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "eks-pod-identity-agent"
+  addon_version               = "v1.3.9-eksbuild.3"
+  resolve_conflicts_on_update = "OVERWRITE"
 }
 
-resource "aws_iam_openid_connect_provider" "cluster" {
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = [data.tls_certificate.cluster.certificates[0].sha1_fingerprint]
-  url             = aws_eks_cluster.main.identity[0].oidc[0].issuer
+# Metrics Server add-on
+resource "aws_eks_addon" "metrics_server" {
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "metrics-server"
+  addon_version               = "v0.8.0-eksbuild.2"
+  resolve_conflicts_on_update = "OVERWRITE"
+}
 
-  tags = var.tags
+# EBS CSI as an EKS managed add-on
+resource "aws_eks_addon" "ebs_csi" {
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "aws-ebs-csi-driver"
+  addon_version               = "v1.51.1-eksbuild.1"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  pod_identity_association {
+    service_account = "ebs-csi-controller-sa"
+    role_arn        = aws_iam_role.ebs_csi.arn
+  }
+
+  depends_on = [
+    aws_eks_addon.pod_identity_agent,
+    aws_iam_role_policy_attachment.ebs_csi_managed
+  ]
+}
+
+# CloudWatch Observability Addon
+resource "aws_eks_addon" "cloudwatch_observability" {
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "amazon-cloudwatch-observability"
+  addon_version               = "v4.5.0-eksbuild.1"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  pod_identity_association {
+    service_account = "cloudwatch-agent"
+    role_arn        = aws_iam_role.cw_agent_role.arn
+  }
+
+  depends_on = [
+    aws_eks_addon.pod_identity_agent,
+    aws_iam_role_policy_attachment.cw_agent_policy
+  ]
+}
+
+# IAM Trust policy for a Role associated with EBS CSI controller service account via pod identity
+data "aws_iam_policy_document" "sa_trust" {
+  statement {
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["pods.eks.amazonaws.com"]
+    }
+    actions = [
+      "sts:AssumeRole",
+      "sts:TagSession"
+    ]
+  }
+}
+
+# IAM Role for EBS CSI controller service account
+resource "aws_iam_role" "ebs_csi" {
+  name               = "${aws_eks_cluster.main.name}-ebs-pod-identity-role"
+  assume_role_policy = data.aws_iam_policy_document.sa_trust.json
+}
+
+# Attach policy to create enencrypted ebs volumes on pvc request
+resource "aws_iam_role_policy_attachment" "ebs_csi_managed" {
+  role       = aws_iam_role.ebs_csi.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+}
+
+# Additional policy for EBS CSI Driver (for encryption, snapshots, etc.)
+data "aws_iam_policy_document" "ebs_csi_driver_additional" {
+  statement {
+    sid    = "EC2DescribeReadOnly"
+    effect = "Allow"
+
+    actions = [
+      "ec2:DescribeVolumes",
+      "ec2:DescribeSnapshots",
+      "ec2:DescribeTags",
+      "ec2:DescribeInstances",
+      "ec2:DescribeAvailabilityZones",
+    ]
+
+    # Many EC2 Describe APIs require "*" as the resource; keep if unavoidable
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "KMSEncryptDecryptForEBS"
+    effect = "Allow"
+
+    actions = [
+      "kms:Decrypt",
+      "kms:Encrypt",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:CreateGrant",
+      "kms:DescribeKey",
+    ]
+
+    # Prefer providing concrete key ARNs via var.kms_key_arns; fall back to "*" if not set
+    resources = length(var.kms_key_arns) > 0 ? var.kms_key_arns : ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["ec2.${data.aws_region.current.region}.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_policy" "ebs_csi_driver_additional" {
+  name        = "${aws_eks_cluster.main.name}-ebs-csi-driver-additional"
+  description = "Additional permissions for EBS CSI Driver"
+  policy      = data.aws_iam_policy_document.ebs_csi_driver_additional.json
+}
+
+# IAM Role for service account responsible for CloudWatch Agent
+resource "aws_iam_role" "cw_agent_role" {
+  name               = "${aws_eks_cluster.main.name}-cloudwatch-agent-role"
+  assume_role_policy = data.aws_iam_policy_document.sa_trust.json
+}
+
+# Policy that allows to upload logs, metrics, etc
+resource "aws_iam_role_policy_attachment" "cw_agent_policy" {
+  role       = aws_iam_role.cw_agent_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }

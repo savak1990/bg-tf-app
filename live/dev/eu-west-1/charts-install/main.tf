@@ -31,8 +31,5 @@ module "argocd" {
   ingress_enabled = false
   # ingress_host    = "argocd.example.com"
 
-  # Pass OIDC provider ARN for IRSA (optional)
-  oidc_provider_arn = data.terraform_remote_state.eks.outputs.oidc_provider_arn
-
   tags = local.common_tags
 }

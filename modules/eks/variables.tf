@@ -49,6 +49,12 @@ variable "disk_size" {
   default     = 20
 }
 
+variable "kms_key_arns" {
+  description = "List of KMS key ARNs the EBS CSI Driver shold be allowed to use. Falls back to all keys"
+  type        = list(string)
+  default     = []
+}
+
 variable "endpoint_private_access" {
   description = "Enable private API server endpoint"
   type        = bool
@@ -77,10 +83,4 @@ variable "log_retention_days" {
   description = "Number of days to retain log events in CloudWatch Logs"
   type        = number
   default     = 7
-}
-
-variable "tags" {
-  description = "A map of tags to add to all resources"
-  type        = map(string)
-  default     = {}
 }

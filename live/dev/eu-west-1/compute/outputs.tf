@@ -55,28 +55,7 @@ output "node_group_status" {
   value       = module.eks.node_group_status
 }
 
-output "oidc_provider_arn" {
-  description = "ARN of the OIDC Provider for EKS (for IRSA)"
-  value       = module.eks.oidc_provider_arn
-}
-
-output "oidc_provider_url" {
-  description = "URL of the OIDC Provider for EKS"
-  value       = module.eks.oidc_provider_url
-}
-
 output "configure_kubectl" {
   description = "Command to configure kubectl"
   value       = "aws eks update-kubeconfig --region ${local.aws_region} --name ${local.cluster_name}"
-}
-
-# EBS CSI Driver IAM Role
-output "ebs_csi_driver_role_arn" {
-  description = "IAM role ARN for EBS CSI Driver (use this in Helm values)"
-  value       = aws_iam_role.ebs_csi_driver.arn
-}
-
-output "ebs_csi_driver_role_name" {
-  description = "IAM role name for EBS CSI Driver"
-  value       = aws_iam_role.ebs_csi_driver.name
 }
