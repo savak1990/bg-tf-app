@@ -29,6 +29,7 @@ help:
 	@echo "  destroy-vpc           - Destroy VPC only (requires EKS to be destroyed first)"
 	@echo "  clean                 - Clean Terraform cache and lock files"
 	@echo "  output                - Show Terraform outputs"
+	@echo "  creds-argocd          - Get ArgoCD initial admin password"
 	@echo ""
 
 # Terraform directories
@@ -323,3 +324,14 @@ state-k8s-bootstrap:
 state-k8s-argocd:
 	@echo "K8s ArgoCD Config Terraform state:"
 	cd $(TF_K8S_ARGOCD_DIR) && terraform state list
+
+# Get ArgoCD initial admin password
+creds-argocd:
+	@echo "Fetching ArgoCD url, login and password..."
+	ARGOCD_URL=$$(kubectl -n argocd get svc argocd-server -o jsonpath="{.status.loadBalancer.ingress[0].hostname}"); \
+	ARGOCD_ADMIN_PASSWORD=$$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 --decode); \
+	ARGOCD_PORT_FORWARD_COMMAND=$$(cd $(TF_K8S_BOOTSTRAP_DIR) && terraform output -raw argocd_port_forward_command); \
+	echo "Port Forward Command: $$ARGOCD_PORT_FORWARD_COMMAND"; \
+	echo "ArgoCD URL: $$ARGOCD_URL"; \
+	echo "Admin Username: admin"; \
+	echo "Admin Password: $$ARGOCD_ADMIN_PASSWORD"; \
