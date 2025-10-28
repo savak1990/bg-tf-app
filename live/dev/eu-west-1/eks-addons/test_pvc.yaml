@@ -10,3 +10,22 @@ spec:
   resources:
     requests:
       storage: 5Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-ebs-pod
+  namespace: default
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    volumeMounts:
+    - name: ebs-storage
+      mountPath: /data
+    command: ["/bin/sh"]
+    args: ["-c", "echo 'Hello from EBS volume!' > /data/test.txt && cat /data/test.txt && tail -f /dev/null"]
+  volumes:
+  - name: ebs-storage
+    persistentVolumeClaim:
+      claimName: test-ebs-pvc

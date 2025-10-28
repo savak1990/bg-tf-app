@@ -29,14 +29,6 @@ resource "aws_eks_addon" "ebs_csi" {
   ]
 }
 
-# Wait for EBS CSI driver to be fully ready before creating storage class
-# This ensures the provisioner is available
-resource "time_sleep" "wait_for_ebs_csi" {
-  create_duration = "20s"
-
-  depends_on = [aws_eks_addon.ebs_csi]
-}
-
 # Create EBS GP3 storage class
 resource "kubernetes_storage_class" "ebs_gp3" {
   metadata {
@@ -45,17 +37,17 @@ resource "kubernetes_storage_class" "ebs_gp3" {
 
   storage_provisioner    = "ebs.csi.aws.com"
   reclaim_policy         = "Delete"
-  volume_binding_mode    = "Immediate"
+  volume_binding_mode    = "WaitForFirstConsumer"
   allow_volume_expansion = true
 
   parameters = {
-    type       = "gp3"
-    iops       = "3000"
-    throughput = "125"
-    encrypted  = "true"
+    type = "gp3"
+    # iops       = "3000"
+    # throughput = "125"
+    # encrypted  = "true"
   }
 
-  depends_on = [time_sleep.wait_for_ebs_csi]
+  depends_on = [aws_eks_addon.ebs_csi]
 }
 
 # CloudWatch Observability Addon
