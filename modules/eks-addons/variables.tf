@@ -3,6 +3,11 @@ variable "cluster_name" {
   type        = string
 }
 
+variable "cluster_vpc_id" {
+  description = "VPC where cluster is running"
+  type        = string
+}
+
 variable "cluster_endpoint" {
   description = "EKS cluster API endpoint"
   type        = string

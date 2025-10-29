@@ -4,27 +4,17 @@ output "argocd_namespace" {
   value       = module.k8s_argocd_config.namespace
 }
 
-output "app_of_apps_name" {
-  description = "Name of the App-of-Apps application"
-  value       = module.k8s_argocd_config.app_of_apps_name
-}
-
-output "app_of_apps_namespace" {
-  description = "Namespace of the App-of-Apps application"
-  value       = module.k8s_argocd_config.app_of_apps_namespace
-}
-
-output "apps_path" {
-  description = "Path of applications in gitops repo"
-  value       = local.apps_path
-}
-
 output "repository_secret_name" {
   description = "Name of the repository secret"
   value       = module.k8s_argocd_config.repository_secret_name
 }
 
-output "repository_url" {
-  description = "Repository URL configured for ArgoCD"
-  value       = module.k8s_argocd_config.repository_url
+output "argocd_projects" {
+  description = "Names of created Argo CD projects"
+  value       = module.k8s_argocd_config.argocd_projects
+}
+
+output "app_of_apps_names" {
+  description = "Names of the App-of-Apps applications"
+  value       = module.k8s_argocd_config.app_of_apps_names
 }

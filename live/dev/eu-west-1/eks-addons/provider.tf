@@ -24,13 +24,3 @@ provider "aws" {
     tags = local.common_tags
   }
 }
-
-# Data source to get EKS cluster info from remote state
-data "terraform_remote_state" "eks" {
-  backend = "s3"
-  config = {
-    bucket = "bg-tf-state-vk"
-    key    = "dev/eu-west-1/eks/terraform.tfstate"
-    region = "eu-west-1"
-  }
-}

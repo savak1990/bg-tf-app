@@ -205,3 +205,32 @@ resource "aws_eks_node_group" "main" {
     ignore_changes = [scaling_config[0].desired_size]
   }
 }
+
+# Tag the subnets to identify where to create load balancers
+resource "aws_ec2_tag" "public_subnet_tags" {
+  for_each = toset(var.subnet_ids)
+
+  resource_id = each.value
+  key         = "kubernetes.io/role/elb"
+  value       = "1"
+}
+
+# Tag the subnets to identify where to create internal load balancer
+# Temporarily do this in a public subnet
+# Private subnets (for internal load balancers)
+resource "aws_ec2_tag" "private_subnet_tags" {
+  for_each = toset(var.subnet_ids)
+
+  resource_id = each.value
+  key         = "kubernetes.io/role/internal-elb"
+  value       = "1"
+}
+
+# Tag for cluster ownership (required for discovery)
+resource "aws_ec2_tag" "cluster_tag" {
+  for_each = toset(var.subnet_ids)
+
+  resource_id = each.value
+  key         = "kubernetes.io/cluster/${var.cluster_name}"
+  value       = "owned"
+}

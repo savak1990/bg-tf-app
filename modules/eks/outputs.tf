@@ -35,6 +35,11 @@ output "cluster_version" {
   value       = aws_eks_cluster.main.version
 }
 
+output "cluster_vpc_id" {
+  description = "VPC ID of the cluster"
+  value       = aws_eks_cluster.main.vpc_config[0].vpc_id
+}
+
 output "node_security_group_id" {
   description = "Security group ID attached to the EKS nodes"
   value       = aws_security_group.node.id

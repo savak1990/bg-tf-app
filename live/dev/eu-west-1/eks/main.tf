@@ -16,7 +16,7 @@ locals {
   # EKS configuration
   cluster_name  = "${local.project}-eks-${local.environment}"
   instance_type = "m5.large" # 2 vCPU, 8 GB RAM
-  desired_size  = 3
+  desired_size  = 2
   min_size      = 1
   max_size      = 5
 }

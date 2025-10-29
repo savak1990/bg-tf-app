@@ -1,7 +1,13 @@
+locals {
+  projects_by_name = { for p in var.projects : p.name => p }
+}
+
 # Create repository secret for public GitHub repo (URL only, no credentials)
 resource "kubernetes_secret" "repository_secret" {
+  for_each = local.projects_by_name
+
   metadata {
-    name      = var.repository_name
+    name      = "${each.key}-repo"
     namespace = var.namespace
     labels = {
       "argocd.argoproj.io/secret-type" = "repository"
@@ -12,19 +18,70 @@ resource "kubernetes_secret" "repository_secret" {
 
   data = {
     type = "git"
-    url  = var.repository_url
+    url  = each.value.repo_url
   }
 }
 
-# Create root App-of-Apps application
+# ArgoCD Project
+resource "kubernetes_manifest" "argocd_project" {
+  for_each = local.projects_by_name
+
+  manifest = {
+    apiVersion = "argoproj.io/v1alpha1"
+    kind       = "AppProject"
+    metadata = {
+      name      = each.key
+      namespace = var.namespace
+      annotations = {
+        "argocd.argoproj.io/sync-wave" = "0"
+      }
+    }
+    spec = {
+      description = "Project ${each.key}"
+
+      # Pin to the repo that defines apps for this project
+      sourceRepos = [
+        each.value.repo_url
+      ]
+
+      destinations = [
+        {
+          server    = "https://kubernetes.default.svc"
+          namespace = "*"
+        }
+      ]
+
+      clusterResourceWhitelist = [
+        {
+          group = "*"
+          kind  = "*"
+        }
+      ]
+
+      namespaceResourceWhitelist = [
+        {
+          group = "*"
+          kind  = "*"
+        }
+      ]
+    }
+  }
+}
+
+
 resource "kubernetes_manifest" "app_of_apps" {
+  for_each = local.projects_by_name
+
   manifest = {
     apiVersion = "argoproj.io/v1alpha1"
     kind       = "Application"
     metadata = {
-      name      = var.app_of_apps_name
+      name      = "${each.key}-apps"
       namespace = var.namespace
       annotations = {
+        # Optional: wave 1 so it comes after the AppProject (wave 0)
+        "argocd.argoproj.io/sync-wave" = "1"
+        # Optional: ensure children are deleted before the parent
         "argocd.argoproj.io/cascade" = "foreground"
       }
       finalizers = [
@@ -32,12 +89,15 @@ resource "kubernetes_manifest" "app_of_apps" {
       ]
     }
     spec = {
-      project = "default" # Use ArgoCD's built-in default project
+      project = each.key
 
       source = {
-        repoURL        = var.repository_url
-        targetRevision = var.target_revision
-        path           = var.apps_path
+        repoURL        = each.value.repo_url
+        targetRevision = each.value.revision
+        path           = each.value.repo_apps_path
+
+        # If your app-of-apps directory only contains Application manifests,
+        # you usually don't need recurse = true; keep it if you rely on it.
         directory = {
           recurse = true
         }
@@ -45,7 +105,7 @@ resource "kubernetes_manifest" "app_of_apps" {
 
       destination = {
         server    = "https://kubernetes.default.svc"
-        namespace = var.namespace
+        namespace = each.value.namespace
       }
 
       syncPolicy = {
@@ -60,5 +120,8 @@ resource "kubernetes_manifest" "app_of_apps" {
     }
   }
 
-  depends_on = [kubernetes_secret.repository_secret]
+  depends_on = [
+    kubernetes_secret.repository_secret,
+    kubernetes_manifest.argocd_project,
+  ]
 }

@@ -31,10 +31,20 @@ module "k8s_argocd_config" {
 
   namespace = "argocd"
 
-  # Repository configuration for App-of-Apps
-  repository_url   = "https://github.com/savak1990/bg-argocd-gitops.git"
-  repository_name  = "bg-app-repo"
-  app_of_apps_name = "bg-app-of-apps"
-  apps_path        = local.apps_path
-  target_revision  = "HEAD"
+  projects = [
+    {
+      name           = "platform"
+      namespace      = "platform"
+      repo_url       = "https://github.com/savak1990/bg-argocd-gitops.git"
+      repo_apps_path = "apps-platform"
+      revision       = "main"
+    },
+    {
+      name           = "bg"
+      namespace      = "bg"
+      repo_url       = "https://github.com/savak1990/bg-argocd-gitops.git"
+      repo_apps_path = "apps-bg"
+      revision       = "HEAD"
+    }
+  ]
 }

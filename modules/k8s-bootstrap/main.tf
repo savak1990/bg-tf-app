@@ -35,6 +35,12 @@ resource "helm_release" "argocd" {
 
         service = {
           type = var.ingress_enabled ? "ClusterIP" : "LoadBalancer"
+
+          annotations = {
+            "service.beta.kubernetes.io/aws-load-balancer-type"   = "nlb-ip"
+            "service.beta.kubernetes.io/aws-load-balancer-scheme" = "internet-facing"
+            loadBalancerClass                                     = "service.k8s.aws/nlb"
+          }
         }
 
         ingress = {
