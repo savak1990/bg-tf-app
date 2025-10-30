@@ -32,6 +32,11 @@ resource "aws_eks_pod_identity_association" "lbc" {
   namespace       = "kube-system"
   service_account = local.aws_lbc_name
   role_arn        = aws_iam_role.lbc.arn
+
+  depends_on = [
+    aws_eks_addon.pod_identity_agent,
+    aws_iam_role_policy_attachment.lbc
+  ]
 }
 
 # IAM Role for ingress controller

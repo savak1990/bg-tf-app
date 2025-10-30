@@ -15,16 +15,14 @@ help:
 	@echo "  validate              - Validate Terraform configuration"
 	@echo "  fmt                   - Format Terraform files"
 	@echo "  plan                  - Show Terraform execution plan for all layers"
-	@echo "  apply                 - Apply all infrastructure (VPC → EKS → EKS-Addons → K8s-Bootstrap → K8s-ArgoCD-Config) in sequence"
+	@echo "  apply                 - Apply all infrastructure (VPC → EKS → K8s-Bootstrap → K8s-ArgoCD-Config) in sequence"
 	@echo "  apply-vpc             - Apply VPC configuration only"
 	@echo "  apply-eks             - Apply EKS configuration only (requires VPC)"
-	@echo "  apply-eks-addons      - Apply EKS addons only (requires EKS)"
-	@echo "  apply-k8s-bootstrap   - Apply K8s bootstrap (ArgoCD installation) only (requires EKS addons)"
+	@echo "  apply-k8s-bootstrap   - Apply K8s bootstrap (ArgoCD installation and EKS addons)"
 	@echo "  apply-k8s-argocd      - Apply K8s ArgoCD configuration only (requires K8s bootstrap)"
 	@echo "  destroy               - Destroy all Terraform-managed infrastructure"
 	@echo "  destroy-k8s-argocd    - Destroy K8s ArgoCD configuration only"
 	@echo "  destroy-k8s-bootstrap - Destroy K8s bootstrap only"
-	@echo "  destroy-eks-addons    - Destroy EKS addons only"
 	@echo "  destroy-eks           - Destroy EKS cluster only"
 	@echo "  destroy-vpc           - Destroy VPC only (requires EKS to be destroyed first)"
 	@echo "  clean                 - Clean Terraform cache and lock files"
@@ -35,7 +33,6 @@ help:
 # Terraform directories
 TF_VPC_DIR            = live/dev/eu-west-1/networking
 TF_EKS_DIR            = live/dev/eu-west-1/eks
-TF_EKS_ADDONS_DIR     = live/dev/eu-west-1/eks-addons
 TF_K8S_BOOTSTRAP_DIR  = live/dev/eu-west-1/k8s-bootstrap
 TF_K8S_ARGOCD_DIR     = live/dev/eu-west-1/k8s-argocd-config
 
@@ -66,11 +63,6 @@ init-eks:
 	@echo "Initializing Terraform for EKS..."
 	cd $(TF_EKS_DIR) && terraform init
 
-# Initialize EKS Addons only
-init-eks-addons:
-	@echo "Initializing Terraform for EKS Addons..."
-	cd $(TF_EKS_ADDONS_DIR) && terraform init
-
 # Initialize K8s Bootstrap only
 init-k8s-bootstrap:
 	@echo "Initializing Terraform for K8s Bootstrap..."
@@ -88,9 +80,6 @@ validate: init
 	@echo ""
 	@echo "Validating EKS configuration..."
 	cd $(TF_EKS_DIR) && terraform validate
-	@echo ""
-	@echo "Validating EKS Addons configuration..."
-	cd $(TF_EKS_ADDONS_DIR) && terraform validate
 	@echo ""
 	@echo "Validating K8s Bootstrap configuration..."
 	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform validate
@@ -111,10 +100,6 @@ plan: init
 	@echo "Creating Terraform execution plan for EKS..."
 	cd $(TF_EKS_DIR) && terraform plan
 	@echo ""
-	@echo "Creating Terraform execution plan for EKS Addons..."
-	@echo "Note: EKS Addons plan will fail if EKS cluster doesn't exist yet."
-	@cd $(TF_EKS_ADDONS_DIR) && terraform plan || echo "EKS Addons plan skipped (EKS not deployed yet)"
-	@echo ""
 	@echo "Creating Terraform execution plan for K8s Bootstrap..."
 	@echo "Note: K8s Bootstrap plan will fail if EKS Addons aren't deployed yet."
 	@cd $(TF_K8S_BOOTSTRAP_DIR) && terraform plan || echo "K8s Bootstrap plan skipped (EKS Addons not deployed yet)"
@@ -133,11 +118,6 @@ plan-eks:
 	@echo "Creating Terraform execution plan for EKS..."
 	cd $(TF_EKS_DIR) && terraform plan
 
-# Plan EKS Addons only
-plan-eks-addons:
-	@echo "Creating Terraform execution plan for EKS Addons..."
-	cd $(TF_EKS_ADDONS_DIR) && terraform plan
-
 # Plan K8s Bootstrap only
 plan-k8s-bootstrap:
 	@echo "Creating Terraform execution plan for K8s Bootstrap..."
@@ -148,8 +128,8 @@ plan-k8s-argocd:
 	@echo "Creating Terraform execution plan for K8s ArgoCD Config..."
 	cd $(TF_K8S_ARGOCD_DIR) && terraform plan
 
-# Apply configuration (VPC → EKS → EKS Addons → K8s Bootstrap → K8s ArgoCD Config)
-apply: apply-vpc apply-eks apply-eks-addons apply-k8s-bootstrap apply-k8s-argocd
+# Apply configuration (VPC → EKS → K8s Bootstrap → K8s ArgoCD Config)
+apply: apply-vpc apply-eks apply-k8s-bootstrap apply-k8s-argocd
 	@echo "All infrastructure applied successfully!"
 
 # Apply VPC configuration
@@ -161,11 +141,6 @@ apply-vpc:
 apply-eks:
 	@echo "Applying EKS configuration..."
 	cd $(TF_EKS_DIR) && terraform apply -auto-approve
-
-# Apply EKS Addons configuration (depends on EKS)
-apply-eks-addons:
-	@echo "Applying EKS Addons configuration..."
-	cd $(TF_EKS_ADDONS_DIR) && terraform apply -auto-approve
 
 # Apply K8s Bootstrap configuration (depends on EKS Addons)
 apply-k8s-bootstrap:
@@ -185,9 +160,6 @@ apply-confirm: init
 	@echo "Applying EKS configuration (with confirmation)..."
 	cd $(TF_EKS_DIR) && terraform apply
 	@echo ""
-	@echo "Applying EKS Addons configuration (with confirmation)..."
-	cd $(TF_EKS_ADDONS_DIR) && terraform apply
-	@echo ""
 	@echo "Applying K8s Bootstrap configuration (with confirmation)..."
 	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform apply
 	@echo ""
@@ -195,7 +167,7 @@ apply-confirm: init
 	cd $(TF_K8S_ARGOCD_DIR) && terraform apply
 
 # Destroy infrastructure (K8s ArgoCD Config → K8s Bootstrap → EKS Addons → EKS → VPC)
-destroy: destroy-k8s-argocd destroy-k8s-bootstrap destroy-eks-addons destroy-eks destroy-vpc
+destroy: destroy-k8s-argocd destroy-k8s-bootstrap destroy-eks destroy-vpc
 	@echo "All infrastructure destroyed!"
 
 # Destroy K8s ArgoCD Config
@@ -207,11 +179,6 @@ destroy-k8s-argocd:
 destroy-k8s-bootstrap:
 	@echo "Destroying K8s Bootstrap..."
 	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform destroy -auto-approve
-
-# Destroy EKS Addons
-destroy-eks-addons:
-	@echo "Destroying EKS Addons..."
-	cd $(TF_EKS_ADDONS_DIR) && terraform destroy -auto-approve
 
 # Destroy EKS cluster
 destroy-eks:
@@ -233,10 +200,6 @@ output:
 	@echo "======================"
 	cd $(TF_EKS_DIR) && terraform output
 	@echo ""
-	@echo "EKS Addons Terraform outputs:"
-	@echo "============================="
-	cd $(TF_EKS_ADDONS_DIR) && terraform output
-	@echo ""
 	@echo "K8s Bootstrap Terraform outputs:"
 	@echo "================================"
 	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform output
@@ -254,11 +217,6 @@ output-vpc:
 output-eks:
 	@echo "EKS Terraform outputs:"
 	cd $(TF_EKS_DIR) && terraform output
-
-# Show EKS Addons outputs only
-output-eks-addons:
-	@echo "EKS Addons Terraform outputs:"
-	cd $(TF_EKS_ADDONS_DIR) && terraform output
 
 # Show K8s Bootstrap outputs only
 output-k8s-bootstrap:
@@ -288,10 +246,6 @@ state:
 	@echo "===================="
 	cd $(TF_EKS_DIR) && terraform state list
 	@echo ""
-	@echo "EKS Addons Terraform state:"
-	@echo "==========================="
-	cd $(TF_EKS_ADDONS_DIR) && terraform state list
-	@echo ""
 	@echo "K8s Bootstrap Terraform state:"
 	@echo "=============================="
 	cd $(TF_K8S_BOOTSTRAP_DIR) && terraform state list
@@ -309,11 +263,6 @@ state-vpc:
 state-eks:
 	@echo "EKS Terraform state:"
 	cd $(TF_EKS_DIR) && terraform state list
-
-# Show EKS Addons state only
-state-eks-addons:
-	@echo "EKS Addons Terraform state:"
-	cd $(TF_EKS_ADDONS_DIR) && terraform state list
 
 # Show K8s Bootstrap state only
 state-k8s-bootstrap:

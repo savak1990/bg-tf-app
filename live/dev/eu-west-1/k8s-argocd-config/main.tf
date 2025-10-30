@@ -44,7 +44,7 @@ module "k8s_argocd_config" {
       namespace      = "bg"
       repo_url       = "https://github.com/savak1990/bg-argocd-gitops.git"
       repo_apps_path = "apps-bg"
-      revision       = "HEAD"
+      revision       = "main"
     }
   ]
 }

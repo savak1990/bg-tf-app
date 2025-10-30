@@ -3,13 +3,18 @@ variable "cluster_name" {
   type        = string
 }
 
+variable "cluster_vpc_id" {
+  description = "VPC where cluster is running"
+  type        = string
+}
+
 variable "cluster_endpoint" {
-  description = "Endpoint for EKS cluster"
+  description = "EKS cluster API endpoint"
   type        = string
 }
 
 variable "cluster_ca_certificate" {
-  description = "Base64 encoded certificate data for EKS cluster"
+  description = "EKS cluster CA certificate (base64 encoded)"
   type        = string
   sensitive   = true
 }
@@ -20,56 +25,14 @@ variable "cluster_auth_token" {
   sensitive   = true
 }
 
-variable "namespace" {
-  description = "Kubernetes namespace for ArgoCD"
-  type        = string
-  default     = "argocd"
+variable "kms_key_arns" {
+  description = "List of KMS key ARNs the EBS CSI Driver shold be allowed to use. Falls back to all keys"
+  type        = list(string)
+  default     = []
 }
 
-variable "chart_version" {
-  description = "Version of ArgoCD Helm chart"
-  type        = string
-  default     = "7.7.11" # ArgoCD 2.13.2
-}
-
-variable "enable_ha" {
-  description = "Enable high availability mode for ArgoCD"
-  type        = bool
-  default     = false
-}
-
-variable "admin_password_secret_name" {
-  description = "Name of the Kubernetes secret containing admin password (optional, will be auto-generated if not provided)"
-  type        = string
-  default     = ""
-}
-
-variable "ingress_enabled" {
-  description = "Enable ingress for ArgoCD server"
-  type        = bool
-  default     = false
-}
-
-variable "ingress_host" {
-  description = "Hostname for ArgoCD ingress"
-  type        = string
-  default     = ""
-}
-
-variable "helm_values" {
-  description = "Additional Helm values to pass to ArgoCD chart"
-  type        = any
-  default     = {}
-}
-
-variable "tags" {
-  description = "A map of tags to add to all resources"
-  type        = map(string)
-  default     = {}
-}
-
-variable "oidc_provider_arn" {
-  description = "ARN of the OIDC provider for IRSA (optional)"
-  type        = string
-  default     = ""
+variable "domain_filters" {
+  description = "List of domains allowed to be managed by external-dns controller in you aws"
+  type        = list(string)
+  default     = []
 }

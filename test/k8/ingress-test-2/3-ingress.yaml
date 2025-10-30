@@ -7,9 +7,13 @@ metadata:
   name: myapp
   namespace: ing-test
   annotations:
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-west-1:753939038916:certificate/aad20d97-4e4f-4519-8371-e53c11b07948
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/healthcheck-path: /health
+    external-dns.alpha.kubernetes.io/alias: "true"
 spec:
   ingressClassName: alb
   rules:

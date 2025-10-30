@@ -1,34 +1,54 @@
-output "namespace" {
-  description = "Namespace where ArgoCD is installed"
-  value       = kubernetes_namespace.argocd.metadata[0].name
+output "storage_class_name" {
+  description = "Name of the created EBS GP3 storage class"
+  value       = kubernetes_storage_class.ebs_gp3.metadata[0].name
 }
 
-output "argocd_server_service_name" {
-  description = "Name of the ArgoCD server service"
-  value       = "argocd-server"
+output "ebs_csi_addon_id" {
+  description = "EBS CSI addon ID"
+  value       = aws_eks_addon.ebs_csi.id
 }
 
-output "argocd_server_service_type" {
-  description = "Type of the ArgoCD server service"
-  value       = var.ingress_enabled ? "ClusterIP" : "LoadBalancer"
+output "ebs_csi_addon_arn" {
+  description = "EBS CSI addon ARN"
+  value       = aws_eks_addon.ebs_csi.arn
 }
 
-output "helm_release_name" {
-  description = "Name of the Helm release"
-  value       = helm_release.argocd.name
+output "metrics_server_addon_id" {
+  description = "Metrics Server addon ID"
+  value       = aws_eks_addon.metrics_server.id
 }
 
-output "helm_release_version" {
-  description = "Version of the Helm release"
-  value       = helm_release.argocd.version
+output "metrics_server_addon_arn" {
+  description = "Metrics Server addon ARN"
+  value       = aws_eks_addon.metrics_server.arn
 }
 
-output "admin_password_command" {
-  description = "Command to retrieve the initial admin password"
-  value       = "kubectl -n ${kubernetes_namespace.argocd.metadata[0].name} get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
+output "pod_identity_agent_addon_id" {
+  description = "EKS Pod Identity Agent addon ID"
+  value       = aws_eks_addon.pod_identity_agent.id
 }
 
-output "port_forward_command" {
-  description = "Command to port-forward to ArgoCD server"
-  value       = "kubectl port-forward svc/argocd-server -n ${kubernetes_namespace.argocd.metadata[0].name} 8080:443"
+output "pod_identity_agent_addon_arn" {
+  description = "EKS Pod Identity Agent addon ARN"
+  value       = aws_eks_addon.pod_identity_agent.arn
+}
+
+output "cloudwatch_observability_addon_id" {
+  description = "CloudWatch Observability addon ID"
+  value       = aws_eks_addon.cloudwatch_observability.id
+}
+
+output "cloudwatch_observability_addon_arn" {
+  description = "CloudWatch Observability addon ARN"
+  value       = aws_eks_addon.cloudwatch_observability.arn
+}
+
+output "ebs_csi_iam_role_arn" {
+  description = "ARN of the IAM role for EBS CSI driver"
+  value       = aws_iam_role.ebs_csi.arn
+}
+
+output "cloudwatch_agent_iam_role_arn" {
+  description = "ARN of the IAM role for CloudWatch agent"
+  value       = aws_iam_role.cw_agent_role.arn
 }
