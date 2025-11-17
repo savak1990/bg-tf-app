@@ -26,6 +26,8 @@ resource "aws_eks_addon" "external_dns" {
   })
 
   depends_on = [
+    helm_release.lbc,
+    aws_eks_pod_identity_association.lbc,
     aws_eks_addon.pod_identity_agent,
     aws_eks_pod_identity_association.external_dns
   ]
